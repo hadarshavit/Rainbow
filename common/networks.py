@@ -8,6 +8,7 @@ import torch
 from torch import nn as nn, Tensor
 from torch.nn import init
 import torch.nn.functional as F
+import timm
 
 class FactorizedNoisyLinear(nn.Module):
     """ The factorized Gaussian noise layer for noisy-nets dqn. """
@@ -262,9 +263,46 @@ class ImpalaCNNLarge(nn.Module):
         return self.dueling(f, advantages_only=advantages_only)
 
 
+class ConvNeXtAttoModel(nn.Module):
+    """
+    Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
+    """
+    def __init__(self, in_depth, actions, linear_layer, spectral_norm=False):
+        super().__init__()
+
+        def identity(p): return p
+
+        norm_func = torch.nn.utils.spectral_norm if (spectral_norm == 'all') else None
+        # norm_func_last = torch.nn.utils.spectral_norm if (spectral_norm == 'last' or spectral_norm == 'all') else None
+
+        self.convnext_backbone = timm.create_model('convnext_atto', pretrained=False, in_chans=4, norm_layer=norm_func)
+        self.head.global_pool = nn.Identity()
+        self.head.norm = nn.Identity()
+        self.head.flatten = nn.Identity()
+        self.head.drop = nn.Identity()
+
+        self.dueling = Dueling(
+            nn.Sequential(linear_layer(320 * 4 * 4, 256),
+                          nn.GELU(),
+                          linear_layer(256, 1)),
+            nn.Sequential(linear_layer(320 * 4 * 4, 256),
+                          nn.GELU(),
+                          linear_layer(256, actions))
+        )
+
+    def forward(self, x, advantages_only=False):
+        f = self.main(x)
+        f = self.pool(f)
+        return self.dueling(f, advantages_only=advantages_only)
+
+
+
 def get_model(model_str, spectral_norm):
     if model_str == 'nature': return NatureCNN
     elif model_str == 'dueling': return DuelingNatureCNN
     elif model_str == 'impala_small': return ImpalaCNNSmall
     elif model_str.startswith('impala_large:'):
         return partial(ImpalaCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
+    elif model_str.startswith('convnext_atto'):
+        return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm)
+    

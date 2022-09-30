@@ -65,7 +65,7 @@ def read_args():
 
     # rainbow settings
     parser.add_argument('--network_arch', type=str, default='impala_large:2',
-                        help='which model architecture to use for the q-network; one of "nature", "dueling", "impala_small", "impala_large:c" (c is the number of channels in impala large)')
+                        help='which model architecture to use for the q-network; one of "nature", "dueling", "impala_small", "impala_large:c", "convnext_atto" (c is the number of channels in impala large)')
     parser.add_argument('--spectral_norm', type=str, default='all', help='where to use spectral norm in IMPALA-large residual blocks ("none", "last", "all")')
     parser.add_argument('--double_dqn', type=parse_bool, default=True, help='whether to use the double-dqn TD-target')
     parser.add_argument('--prioritized_er', type=parse_bool, default=True, help='whether to use prioritized experience replay')
