@@ -108,12 +108,11 @@ class PrioritizedReplayBuffer:
                 if self.n_step_buffers[j][k][3]:
                     done = True
                     break
-
-            assert isinstance(state, LazyFrames)
-            assert isinstance(next_state, LazyFrames)
+            # assert isinstance(state, LazyFrames)
+            # assert isinstance(next_state, LazyFrames)
 
             idx = self.next_idx
-            self.data[idx] = self.prepare_transition(state, next_state, action, reward, done)
+            self.data[idx] = state, next_state, action, reward, done
             self.next_idx = (idx + 1) % self.capacity
             self.size = min(self.capacity, self.size + 1)
 
