@@ -125,7 +125,7 @@ def read_args():
     if args.resolution is not None:
         args.resolution = (args.resolution, args.resolution)
 
-    if args.env_name.startswith('gym:'):
+    if args.env_name.startswith('gym:') or args.env_name.startswith('cule:'):
         if args.frame_skip is None: args.frame_skip = 4
         if args.frame_stack is None: args.frame_stack = 4
         if args.resolution is None: args.resolution = (84, 84)
