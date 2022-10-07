@@ -177,9 +177,8 @@ class PrioritizedReplayBuffer:
 
     def prepare_samples(self, batch):
         state, next_state, action, reward, done = zip(*batch)
-        print(state.shape, next_state.shape, action.shape, reward.shape, done.shape)
-        state = list(map(lambda x: torch.from_numpy(x.__array__()), state))
-        next_state = list(map(lambda x: torch.from_numpy(x.__array__()), next_state))
+        state = list(state)
+        next_state = list(next_state)
 
         state, next_state, action, reward, done = map(torch.stack, [state, next_state, action, reward, done])
         return prep_observation_for_qnet(state, self.use_amp), prep_observation_for_qnet(next_state, self.use_amp), \
