@@ -45,7 +45,8 @@ if __name__ == '__main__':
     print(f'Creating', args.parallel_envs, 'and decorrelating environment instances. This may take up to a few minutes.. ', end='')
     # decorr_steps = None
     # if args.decorr and not args.env_name.startswith('procgen:'):
-    decorr_steps = get_mean_ep_length(args) // args.parallel_envs
+    # decorr_steps = get_mean_ep_length(args) // args.parallel_envs
+    decorr_steps = 8000
     env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
                      color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda'), rescale=True,
                      frame_skip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
