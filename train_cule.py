@@ -13,6 +13,8 @@ import numpy as np
 from tqdm import trange
 from rich import print
 from torchcule.atari import Env as AtariEnv
+from gym.spaces import Box
+from gym.wrappers import LazyFrames
 
 from common import argp
 from common.rainbow import Rainbow
@@ -50,8 +52,10 @@ if __name__ == '__main__':
     env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
                      color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda'), rescale=True,
                      frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
+    
     env.height = args.resolution[0]
     env.width = args.resolution[1]
+    env.train()
     states = env.reset(initial_steps=decorr_steps)
     print('Done.')
 
@@ -89,6 +93,7 @@ if __name__ == '__main__':
         if args.noisy_dqn:
             rainbow.reset_noise(rainbow.q_policy)
 
+        states = states.squeeze(1) # TODO remove this when proper framestacking is implemented
         # compute actions to take in all parallel envs, asynchronously start environment step
         actions = rainbow.act(states, eps)
         next_states, rewards, dones, infos  = env.step(actions, asyn=True)
