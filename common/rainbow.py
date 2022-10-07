@@ -80,7 +80,7 @@ class Rainbow:
                 for i in range(actions.shape[0]):
                     if random.random() < eps:
                         actions[i] = self.env.action_space.sample()
-            return actions.cpu()
+            return actions
 
     @torch.no_grad()
     def td_target(self, reward: float, next_state, done: bool):
