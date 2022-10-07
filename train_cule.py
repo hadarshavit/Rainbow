@@ -48,9 +48,9 @@ if __name__ == '__main__':
     # decorr_steps = None
     # if args.decorr and not args.env_name.startswith('procgen:'):
     # decorr_steps = get_mean_ep_length(args) // args.parallel_envs
-    decorr_steps = 8000
+    decorr_steps = 80#00
     env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
-                     color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda'), rescale=True,
+                     color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda:0'), rescale=True,
                      frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
     
     env.height = args.resolution[0]
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         if args.noisy_dqn:
             rainbow.reset_noise(rainbow.q_policy)
 
-        states = states.squeeze(1) # TODO remove this when proper framestacking is implemented
+        states = states.unsqueeze(1) # TODO remove this when proper framestacking is implemented
         # compute actions to take in all parallel envs, asynchronously start environment step
         actions = rainbow.act(states, eps)
         next_states, rewards, dones, infos  = env.step(actions, asyn=True)
