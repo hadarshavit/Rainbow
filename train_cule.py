@@ -49,7 +49,7 @@ if __name__ == '__main__':
     decorr_steps = 8000
     env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
                      color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda'), rescale=True,
-                     frame_skip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
+                     frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
     env.height = args.resolution[0]
     env.width = args.resolution[1]
     states = env.reset(initial_steps=decorr_steps)
