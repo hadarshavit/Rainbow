@@ -88,10 +88,10 @@ class Rainbow:
         if self.double_dqn:
             best_action = torch.argmax(self.q_policy(next_state, advantages_only=True), dim=1)
             next_Q = torch.gather(self.q_target(next_state), dim=1, index=best_action.unsqueeze(1)).squeeze()
-            return reward + self.n_step_gamma * next_Q * (1 - done)
+            return reward + self.n_step_gamma * next_Q * (1 - done.float())
         else:
             max_q = torch.max(self.q_target(next_state), dim=1)[0]
-            return reward + self.n_step_gamma * max_q * (1 - done)
+            return reward + self.n_step_gamma * max_q * (1 - done.float())
 
     def train(self, batch_size, beta=None) -> Tuple[float, float, float]:
         if self.prioritized_er:
