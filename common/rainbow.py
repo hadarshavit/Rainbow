@@ -73,7 +73,7 @@ class Rainbow:
         """ computes an epsilon-greedy step with respect to the current policy self.q_policy """
         with torch.no_grad():
             with autocast(enabled=self.use_amp):
-                states = prep_observation_for_qnet(torch.from_numpy(np.stack(states)), self.use_amp)
+                states = prep_observation_for_qnet(states, self.use_amp)# torch.from_numpy(np.stack(states))
                 action_values = self.q_policy(states, advantages_only=True)
                 actions = torch.argmax(action_values, dim=1)
             if eps > 0:
