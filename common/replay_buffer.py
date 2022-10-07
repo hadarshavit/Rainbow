@@ -110,7 +110,7 @@ class PrioritizedReplayBuffer:
                     break
             # assert isinstance(state, LazyFrames)
             # assert isinstance(next_state, LazyFrames)
-
+            # TODO check device
             idx = self.next_idx
             self.data[idx] = state, next_state, action, reward, done
             self.next_idx = (idx + 1) % self.capacity
