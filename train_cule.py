@@ -27,7 +27,7 @@ torch.backends.cudnn.benchmark = True  # let cudnn heuristics choose fastest con
 
 class CuLEEnv:
     def __init__(self, args):
-            self.env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
+            self.env = AtariEnv(args.env_name[4:] + 'NoFrameskip-v4', args.parallel_envs,
                      color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda:0'), rescale=True,
                      frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
     
@@ -71,7 +71,7 @@ class CuLEEnv:
         self.episode_discounted_return += reward * self.gamma ** self.episode_length
         self.episode_length += 1
 
-        dones = done.where(done == True)
+        dones = done.nonzero().flatten()
         infos = [dict()] * self.parallel_envs
 
         for index in dones:
