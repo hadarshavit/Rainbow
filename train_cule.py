@@ -37,6 +37,9 @@ class CuLEEnv:
             n_channels = 1 if args.grayscale else 3
             self.states = torch.zeros((args.parallel_envs, n_channels,
                  args.resolution[0], args.resolution[1], args.frame_stack), dtype=torch.uint8, device=torch.device('cuda:0')).cuda()
+                
+            self.action_space = self.env.action_space
+            self.observation_space = self.env.observation_space
     
     def reset(self, decorr_steps):
         observation = self.env.reset(initial_steps=decorr_steps).float()
