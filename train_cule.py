@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
         # compute actions to take in all parallel envs, asynchronously start environment step
         actions = rainbow.act(states, eps)
-        next_states, rewards, dones, infos  = env.step(actions, asyn=True)
+        next_states, rewards, dones, infos  = env.step(actions)
 
         # if training has started, perform args.train_count training steps, each on a batch of size args.batch_size
         if rainbow.buffer.burnedin:
