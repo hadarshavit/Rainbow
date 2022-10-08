@@ -40,10 +40,24 @@ class CuLEEnv:
                 
             self.action_space = self.env.action_space
             self.observation_space = self.env.observation_space
+
+            cur_time = time.time()
+            self.t0 = np.array([cur_time for _ in range(args.parallel_envs)])
+            self.episode_return = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+            self.episode_length = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+            self.episode_discounted_return  = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+            self.gamma = args.gamma
+
+            self.parallel_envs = args.parallel_envs
     
     def reset(self, decorr_steps):
         observation = self.env.reset(initial_steps=decorr_steps).float()
         self.states[:, -1] = observation
+
+        self.episode_return = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+        self.episode_length = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+        self.episode_discounted_return  = torch.zeros(args.parallel_envs, device=torch.device('cuda:0'))
+
         return self.states
     
     def step(self, actions):
@@ -52,6 +66,23 @@ class CuLEEnv:
         self.states[:, :-1].copy_(self.states[:, 1:].clone())
         self.states *= not_done.view(-1, 1, 1, 1, 1)
         self.states[:, -1].copy_(observation.float())
+
+        self.episode_return += reward
+        self.episode_discounted_return += reward * self.gamma ** self.episode_length
+        self.episode_length += 1
+
+        dones = done.where(done == True)
+        infos = [dict()] * self.parallel_envs
+
+        for index in dones:
+            cur_time = time.time()
+            infos[index]['episode_metrics'] = {'return': self.episode_return[index],
+                                               'length': self.episode_length[index],
+                                               'time': round(cur_time - self.t0[index], 6),
+                                               'discounted_return': self.episode_discounted_return[index]}
+            self.episode_return[index] = 0.0
+            self.episode_length[index] = 0
+            self.t0[index] = cur_time
         return self.states, reward, done, info
 
     
@@ -147,30 +178,30 @@ if __name__ == '__main__':
 
         # if any of the envs finished an episode, log stats to wandb
         for info, j in zip(infos, range(args.parallel_envs)):
-            # if 'episode_metrics' in info.keys():
-            #     episode_metrics = info['episode_metrics']
-            #     returns.append(episode_metrics['return'])
-            #     returns_all.append((game_frame, episode_metrics['return']))
-            #     discounted_returns.append(episode_metrics['discounted_return'])
+            if 'episode_metrics' in info.keys():
+                episode_metrics = info['episode_metrics']
+                returns.append(episode_metrics['return'])
+                returns_all.append((game_frame, episode_metrics['return']))
+                discounted_returns.append(episode_metrics['discounted_return'])
 
-            #     log = {'x/game_frame': game_frame + j, 'x/episode': episode_count,
-            #            'ep/return': episode_metrics['return'], 'ep/length': episode_metrics['length'], 'ep/time': episode_metrics['time'],
-            #            'ep/mean_reward_per_frame': episode_metrics['return'] / (episode_metrics['length'] + 1), 'grad_norm': np.mean(grad_norms),
-            #            'mean_loss': np.mean(losses), 'mean_q_value': np.mean(q_values), 'fps': args.parallel_envs / np.mean(iter_times),
-            #            'running_avg_return': np.mean(returns), 'lr': rainbow.opt.param_groups[0]['lr'], 'reward_density': reward_density,
-            #            'discounted_return': np.mean(discounted_returns)}
-            #     if args.prioritized_er: log['per_beta'] = per_beta
-            #     if eps > 0: log['epsilon'] = eps
+                log = {'x/game_frame': game_frame + j, 'x/episode': episode_count,
+                       'ep/return': episode_metrics['return'], 'ep/length': episode_metrics['length'], 'ep/time': episode_metrics['time'],
+                       'ep/mean_reward_per_frame': episode_metrics['return'] / (episode_metrics['length'] + 1), 'grad_norm': np.mean(grad_norms),
+                       'mean_loss': np.mean(losses), 'mean_q_value': np.mean(q_values), 'fps': args.parallel_envs / np.mean(iter_times),
+                       'running_avg_return': np.mean(returns), 'lr': rainbow.opt.param_groups[0]['lr'], 'reward_density': reward_density,
+                       'discounted_return': np.mean(discounted_returns)}
+                if args.prioritized_er: log['per_beta'] = per_beta
+                if eps > 0: log['epsilon'] = eps
 
-            #     # log video recordings if available
-            #     if 'emulator_recording' in info: log['emulator_recording'] = wandb.Video(info['emulator_recording'], fps=(
-            #         BASE_FPS_PROCGEN if args.env_name.startswith('procgen:') else BASE_FPS_ATARI), format="mp4")
-            #     if 'preproc_recording' in info: log['preproc_recording'] = wandb.Video(info['preproc_recording'],
-            #         fps=(BASE_FPS_PROCGEN if args.env_name.startswith('procgen:') else BASE_FPS_ATARI) // args.frame_skip, format="mp4")
+                # log video recordings if available
+                if 'emulator_recording' in info: log['emulator_recording'] = wandb.Video(info['emulator_recording'], fps=(
+                    BASE_FPS_PROCGEN if args.env_name.startswith('procgen:') else BASE_FPS_ATARI), format="mp4")
+                if 'preproc_recording' in info: log['preproc_recording'] = wandb.Video(info['preproc_recording'],
+                    fps=(BASE_FPS_PROCGEN if args.env_name.startswith('procgen:') else BASE_FPS_ATARI) // args.frame_skip, format="mp4")
 
-            #     wandb.log(log)
-            #     episode_count += 1
-            pass
+                wandb.log(log)
+                episode_count += 1
+            
 
         if game_frame % (50_000-(50_000 % args.parallel_envs)) == 0:
             print(f' [{game_frame:>8} frames, {episode_count:>5} episodes] running average return = {np.mean(returns)}')
