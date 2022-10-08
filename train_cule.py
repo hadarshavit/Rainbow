@@ -22,6 +22,35 @@ from common.env_wrappers import create_env, BASE_FPS_ATARI, BASE_FPS_PROCGEN
 from common.utils import LinearSchedule, get_mean_ep_length
 
 torch.backends.cudnn.benchmark = True  # let cudnn heuristics choose fastest conv algorithm
+
+#TODO prefetcher
+
+class CuLEEnv:
+    def __init__(self, args):
+            self.env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
+                     color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda:0'), rescale=True,
+                     frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
+    
+            self.env.height = args.resolution[0]
+            self.env.width = args.resolution[1]
+            self.env.train()
+            n_channels = 1 if args.grayscale else 3
+            self.states = torch.zeros((args.parallel_envs, args.frame_stack, n_channels,
+                 args.resolution[0], args.resolution[1]), dtype=torch.uint8, device=torch.device('cuda:0')).cuda()
+    
+    def reset(self, decorr_steps):
+        observation = self.env.reset(initial_steps=decorr_steps).float()
+        self.state[:, -1] = observation
+        return self.state
+    
+    def step(self, actions):
+        observation, reward, done, info = self.env.step(actions, asyn=True).float()
+        not_done = 1.0 - done.float()
+        self.state[:, :-1].copy_(self.state[:, 1:].clone())
+        self.state *= not_done.view(-1, 1, 1, 1)
+        self.state[:, -1].copy_(observation)
+        return self.state, reward, done, info
+
     
 
 if __name__ == '__main__':
@@ -49,14 +78,8 @@ if __name__ == '__main__':
     # if args.decorr and not args.env_name.startswith('procgen:'):
     # decorr_steps = get_mean_ep_length(args) // args.parallel_envs
     decorr_steps = 80#00
-    env = AtariEnv(args.env_name[5:] + 'NoFrameskip-v4', args.parallel_envs,
-                     color_mode='gray' if args.grayscale else 'rgb', device=torch.device('cuda:0'), rescale=True,
-                     frameskip=4, repeat_prob=0, episodic_life=True, max_noop_steps=30, max_episode_length=10000)
-    
-    env.height = args.resolution[0]
-    env.width = args.resolution[1]
-    env.train()
-    states = env.reset(initial_steps=decorr_steps)
+    env = CuLEEnv(args)
+    states = env.reset(decorr_steps)
     print('Done.')
 
     rainbow = Rainbow(env, args)
@@ -93,7 +116,6 @@ if __name__ == '__main__':
         if args.noisy_dqn:
             rainbow.reset_noise(rainbow.q_policy)
 
-        states = states.unsqueeze(1) # TODO remove this when proper framestacking is implemented
         # compute actions to take in all parallel envs, asynchronously start environment step
         actions = rainbow.act(states, eps)
         next_states, rewards, dones, infos  = env.step(actions, asyn=True)
