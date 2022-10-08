@@ -36,7 +36,7 @@ class CuLEEnv:
             self.env.train()
             n_channels = 1 if args.grayscale else 3
             self.states = torch.zeros((args.parallel_envs, n_channels,
-                 args.resolution[0], args.resolution[1], args.frame_stack), dtype=torch.uint8, device=torch.device('cuda:0')).cuda()
+                 args.resolution[0], args.resolution[1], args.frame_stack), device=torch.device('cuda:0')).float()
                 
             self.action_space = self.env.action_space
             self.observation_space = self.env.observation_space
@@ -50,7 +50,7 @@ class CuLEEnv:
         observation, reward, done, info = self.env.step(actions, asyn=True)
         not_done = 1.0 - done.float()
         self.states[:, :-1].copy_(self.states[:, 1:].clone())
-        self.states *= not_done.view(-1, 1, 1, 1)
+        self.states *= not_done.view(-1, 1, 1, 1, 1)
         self.states[:, -1].copy_(observation.float())
         return self.states, reward, done, info
 
