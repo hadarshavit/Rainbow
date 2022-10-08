@@ -40,16 +40,16 @@ class CuLEEnv:
     
     def reset(self, decorr_steps):
         observation = self.env.reset(initial_steps=decorr_steps).float()
-        self.state[:, -1] = observation
-        return self.state
+        self.states[:, -1] = observation
+        return self.states
     
     def step(self, actions):
         observation, reward, done, info = self.env.step(actions, asyn=True).float()
         not_done = 1.0 - done.float()
-        self.state[:, :-1].copy_(self.state[:, 1:].clone())
-        self.state *= not_done.view(-1, 1, 1, 1)
-        self.state[:, -1].copy_(observation)
-        return self.state, reward, done, info
+        self.states[:, :-1].copy_(self.states[:, 1:].clone())
+        self.states *= not_done.view(-1, 1, 1, 1)
+        self.states[:, -1].copy_(observation)
+        return self.states, reward, done, info
 
     
 
