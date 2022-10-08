@@ -47,11 +47,11 @@ class CuLEEnv:
         return self.states
     
     def step(self, actions):
-        observation, reward, done, info = self.env.step(actions, asyn=True).float()
+        observation, reward, done, info = self.env.step(actions, asyn=True)
         not_done = 1.0 - done.float()
         self.states[:, :-1].copy_(self.states[:, 1:].clone())
         self.states *= not_done.view(-1, 1, 1, 1)
-        self.states[:, -1].copy_(observation)
+        self.states[:, -1].copy_(observation.float())
         return self.states, reward, done, info
 
     
