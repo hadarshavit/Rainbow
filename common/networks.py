@@ -291,7 +291,7 @@ class ConvNeXtAttoModel(nn.Module):
             nn.Sequential(linear_layer(2880, 256),
                           nn.GELU(),
                           linear_layer(256, 1)),
-            nn.Sequential(linear_layer(320 * 4 * 4, 256),
+            nn.Sequential(linear_layer(2880, 256),
                           nn.GELU(),
                           linear_layer(256, actions))
         )
