@@ -283,7 +283,7 @@ class ConvNeXtAttoModel(nn.Module):
         self.convnext_backbone.head.fc = nn.Identity()
 
         out_shpae = self.convnext_backbone(
-                    torch.rand(1, in_depth, resolution, resolution).float()).flatten().shape[0]
+                    torch.rand(1, in_depth, resolution[0], resolution[1]).float()).flatten().shape[0]
         self.dueling = Dueling(
             nn.Sequential(linear_layer(out_shpae, 256),
                           nn.GELU(),
