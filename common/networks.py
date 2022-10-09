@@ -267,7 +267,7 @@ class ConvNeXtAttoModel(nn.Module):
     """
     Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
     """
-    def __init__(self, in_depth, actions, linear_layer, spectral_norm=False):
+    def __init__(self, in_depth, actions, linear_layer, spectral_norm=False, resolution=224):
         super().__init__()
 
         def identity(p): return p
@@ -275,14 +275,17 @@ class ConvNeXtAttoModel(nn.Module):
         norm_func = torch.nn.utils.spectral_norm if (spectral_norm == 'all') else None
         # norm_func_last = torch.nn.utils.spectral_norm if (spectral_norm == 'last' or spectral_norm == 'all') else None
 
-        self.convnext_backbone = timm.create_model('convnext_atto', pretrained=False, in_chans=4, norm_layer=norm_func)
-        self.head.global_pool = nn.Identity()
-        self.head.norm = nn.Identity()
-        self.head.flatten = nn.Identity()
-        self.head.drop = nn.Identity()
+        self.convnext_backbone = timm.create_model('convnext_atto', pretrained=False, in_chans=in_depth, norm_layer=norm_func)
+        self.convnext_backbone.head.global_pool = nn.Identity()
+        self.convnext_backbone.head.norm = nn.Identity()
+        self.convnext_backbone.head.flatten = nn.Identity()
+        self.convnext_backbone.head.drop = nn.Identity()
+        self.convnext_backbone.head.fc = nn.Identity()
 
+        out_shpae = ConvNeXtAttoModel(4, 14, torch.nn.Linear).convnext_backbone(
+                    torch.rand(1, in_depth, resolution, resolution).float()).flatten().shape[0]
         self.dueling = Dueling(
-            nn.Sequential(linear_layer(320 * 4 * 4, 256),
+            nn.Sequential(linear_layer(out_shpae, 256),
                           nn.GELU(),
                           linear_layer(256, 1)),
             nn.Sequential(linear_layer(320 * 4 * 4, 256),
