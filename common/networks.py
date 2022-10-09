@@ -284,8 +284,11 @@ class ConvNeXtAttoModel(nn.Module):
 
         out_shpae = self.convnext_backbone(
                     torch.rand(1, in_depth, resolution[0], resolution[1]).float()).flatten().shape[0]
+
+        self.pool = torch.nn.AdaptiveMaxPool2d((3, 3))
+
         self.dueling = Dueling(
-            nn.Sequential(linear_layer(out_shpae, 256),
+            nn.Sequential(linear_layer(2880, 256),
                           nn.GELU(),
                           linear_layer(256, 1)),
             nn.Sequential(linear_layer(320 * 4 * 4, 256),
@@ -294,7 +297,7 @@ class ConvNeXtAttoModel(nn.Module):
         )
 
     def forward(self, x, advantages_only=False):
-        f = self.main(x)
+        f = self.convnext_backbone(x)
         f = self.pool(f)
         return self.dueling(f, advantages_only=advantages_only)
 
