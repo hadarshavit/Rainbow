@@ -300,12 +300,12 @@ class ConvNeXtAttoModel(nn.Module):
 
 
 
-def get_model(model_str, spectral_norm):
+def get_model(model_str, spectral_norm, resolution=None):
     if model_str == 'nature': return NatureCNN
     elif model_str == 'dueling': return DuelingNatureCNN
     elif model_str == 'impala_small': return ImpalaCNNSmall
     elif model_str.startswith('impala_large:'):
         return partial(ImpalaCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
     elif model_str.startswith('convnext_atto'):
-        return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm)
+        return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution)
     
