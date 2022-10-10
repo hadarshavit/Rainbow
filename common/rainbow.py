@@ -9,6 +9,7 @@ import wandb
 from torch import nn as nn
 from rich import print
 from torch.cuda.amp import GradScaler, autocast
+from timm.optim import create_optimizer_v2
 
 from common import networks
 from common.replay_buffer import UniformReplayBuffer, PrioritizedReplayBuffer
@@ -45,11 +46,14 @@ class Rainbow:
         self.n_step_gamma = args.gamma ** args.n_step
 
         self.max_grad_norm = args.max_grad_norm
-        self.opt = torch.optim.Adam(self.q_policy.parameters(), lr=args.lr, eps=args.adam_eps)
+        self.opt = create_optimizer_v2(self.q_policy.parameters(), args.optimizer, lr=args.lr, 
+                                        weight_decay=args.weight_decay, eps=args.adam_eps)
         self.scaler = GradScaler(enabled=self.use_amp)
 
         self.decay_lr = args.lr_decay_steps is not None
-        if self.decay_lr: self.scheduler = torch.optim.lr_scheduler.StepLR(self.opt, (args.lr_decay_steps*args.train_count)//args.parallel_envs, gamma=args.lr_decay_factor)
+        if self.decay_lr: self.scheduler = torch.optim.lr_scheduler.StepLR(self.opt,
+                                             (args.lr_decay_steps*args.train_count) // args.parallel_envs, 
+                                             gamma=args.lr_decay_factor)
 
         loss_fn_cls = nn.MSELoss if args.loss_fn == 'mse' else nn.SmoothL1Loss
         self.loss_fn = loss_fn_cls(reduction=('none' if self.prioritized_er else 'mean'))

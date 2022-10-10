@@ -86,6 +86,8 @@ def read_args():
     parser.add_argument('--adam_eps', type=float, default=None, help='epsilon for adam (0.00015 for rainbow paper/dopamine, 0.0003125 for DQN/procgen paper); default is to use 0.005/batch_size')
     parser.add_argument('--max_grad_norm', type=float, default=10, help='gradient will be clipped to ensure its l2-norm is less than this')
     parser.add_argument('--loss_fn', type=str, default='huber', help='loss function ("mse" or "huber")')
+    parser.add_argument('--optimizer', type=str, default='adam', help='optimizer type')
+    parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
 
     # gym-retro specific settings
     parser.add_argument('--retro_stickyprob', type=float, default=0.25, help='sticky-action probability in the StochasticFrameSkip wrapper')
