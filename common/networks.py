@@ -289,6 +289,37 @@ class ConvNeXtAttoModel(nn.Module):
         else:
             raise ValueError(f'Unknown value for global pool type {global_pool_type}')
 
+        if spectral_norm == 'all':
+            for stage in self.convnext_backbone.stages:
+                for block in stage.blocks:
+                    block.conv_dw = torch.nn.utils.spectral_norm(block.conv_dw)
+                    block.mlp.fc1 = torch.nn.utils.spectral_norm(block.mlp.fc1)
+                    block.mlp.fc2 = torch.nn.utils.spectral_norm(block.mlp.fc2)
+        elif spectral_norm == 'all_mlp':
+            for stage in self.convnext_backbone.stages:
+                for block in stage.blocks:
+                    block.mlp.fc1 = torch.nn.utils.spectral_norm(block.mlp.fc1)
+                    block.mlp.fc2 = torch.nn.utils.spectral_norm(block.mlp.fc2)
+        elif spectral_norm == 'all_dw':
+            for stage in self.convnext_backbone.stages:
+                for block in stage.blocks:
+                    block.conv_dw = torch.nn.utils.spectral_norm(block.conv_dw)
+        elif spectral_norm == 'last':
+            stage = self.convnext_backbone.stages[-1]
+            for block in stage.blocks:
+                block.conv_dw = torch.nn.utils.spectral_norm(block.conv_dw)
+                block.mlp.fc1 = torch.nn.utils.spectral_norm(block.mlp.fc1)
+                block.mlp.fc2 = torch.nn.utils.spectral_norm(block.mlp.fc2)
+        elif spectral_norm == 'last_mlp':
+            stage = self.convnext_backbone.stages[-1]
+            for block in stage.blocks:
+                block.mlp.fc1 = torch.nn.utils.spectral_norm(block.mlp.fc1)
+                block.mlp.fc2 = torch.nn.utils.spectral_norm(block.mlp.fc2)
+        elif spectral_norm == 'last_dw':
+            stage = self.convnext_backbone.stages[-1]
+            for block in stage.blocks:
+                block.conv_dw = torch.nn.utils.spectral_norm(block.conv_dw)
+
         self.dueling = Dueling(
             nn.Sequential(linear_layer(2880, 256),
                           nn.GELU(),
