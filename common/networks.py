@@ -267,7 +267,7 @@ class ConvNeXtAttoModel(nn.Module):
     """
     Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
     """
-    def __init__(self, in_depth, actions, linear_layer, spectral_norm=False, resolution=224):
+    def __init__(self, in_depth, actions, linear_layer, spectral_norm=False, resolution=224, global_pool_type='max'):
         super().__init__()
 
         def identity(p): return p
@@ -282,10 +282,12 @@ class ConvNeXtAttoModel(nn.Module):
         self.convnext_backbone.head.drop = nn.Identity()
         self.convnext_backbone.head.fc = nn.Identity()
 
-        out_shpae = self.convnext_backbone(
-                    torch.rand(1, in_depth, resolution[0], resolution[1]).float()).flatten().shape[0]
-
-        self.pool = torch.nn.AdaptiveMaxPool2d((3, 3))
+        if global_pool_type == 'max':
+            self.pool = torch.nn.AdaptiveMaxPool2d((3, 3))
+        elif global_pool_type == 'avg':
+            self.pool = torch.nn.AdaptiveAvgPool2d((3, 3))
+        else:
+            raise ValueError(f'Unknown value for global pool type {global_pool_type}')
 
         self.dueling = Dueling(
             nn.Sequential(linear_layer(2880, 256),
@@ -303,12 +305,12 @@ class ConvNeXtAttoModel(nn.Module):
 
 
 
-def get_model(model_str, spectral_norm, resolution=None):
+def get_model(model_str, spectral_norm, resolution, global_pool_type):
     if model_str == 'nature': return NatureCNN
     elif model_str == 'dueling': return DuelingNatureCNN
     elif model_str == 'impala_small': return ImpalaCNNSmall
     elif model_str.startswith('impala_large:'):
         return partial(ImpalaCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
     elif model_str.startswith('convnext_atto'):
-        return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution)
+        return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     

@@ -77,6 +77,7 @@ def read_args():
     parser.add_argument('--eps_decay_frames', type=int, default=500_000, help='exploration epsilon decay frames, 250_000 for rainbow paper, 1M for dopamine (when not using noisy-nets)')
     parser.add_argument('--noisy_dqn', type=parse_bool, default=True, help='whether to use noisy nets dqn')
     parser.add_argument('--noisy_sigma0', type=float, default=0.5, help='sigma_0 parameter for noisy nets dqn')
+    parser.add_argument('--global_pool_type', type=str, default='max', help='Global pooling type for the CNN')
 
     # optimizer settings
     parser.add_argument('--lr', type=float, default=0.00025, help='learning rate for adam (0.0000625 for rainbow paper/dopamine, 0.00025 for DQN/procgen paper)')
