@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # set up logging & model checkpoints
     wandb.init(project='rainbow', save_code=True, config=dict(**wandb_log_config, log_version=100),
                mode=('online' if args.use_wandb else 'offline'), anonymous='allow', tags=[args.wandb_tag] if args.wandb_tag else [])
-    save_dir = Path("checkpoints") / wandb.run.name
+    save_dir = Path(args.save_dir) / wandb.run.name
     save_dir.mkdir(parents=True)
     args.save_dir = str(save_dir)
 

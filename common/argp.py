@@ -102,6 +102,9 @@ def read_args():
     parser.add_argument('--procgen_use_backgrounds', type=parse_bool, default=True, help='normally games use human designed backgrounds, if this flag is set to False, games will use pure black backgrounds.')
     parser.add_argument('--procgen_restrict_themes', type=parse_bool, default=False, help='some games select assets from multiple themes, if this flag is set to True, those games will only use a single theme.')
     parser.add_argument('--procgen_use_monochrome_assets', type=parse_bool, default=False, help='if set to True, games will use monochromatic rectangles instead of human designed assets. best used with restrict_themes=True.')
+
+    # save directory
+    parser.add_argument('--save_dir', type=str, default='checkpoints', help='Save directory for checkpoints')
     args = parser.parse_args()
 
     # some initial checks to ensure all arguments are valid
