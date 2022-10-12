@@ -2,6 +2,7 @@ import collections
 import random
 from math import sqrt
 
+from numba import njit
 import numpy as np
 import torch
 from gym.wrappers import LazyFrames
@@ -120,6 +121,7 @@ class PrioritizedReplayBuffer:
             self._set_priority_min(idx, sqrt(self.max_priority))
             self._set_priority_sum(idx, sqrt(self.max_priority))
 
+    @njit
     def _set_priority_min(self, idx, priority_alpha):
         idx += self.capacity
         self.priority_min[idx] = priority_alpha
@@ -127,6 +129,7 @@ class PrioritizedReplayBuffer:
             idx //= 2
             self.priority_min[idx] = min(self.priority_min[2 * idx], self.priority_min[2 * idx + 1])
 
+    @njit
     def _set_priority_sum(self, idx, priority):
         idx += self.capacity
         self.priority_sum[idx] = priority
@@ -140,6 +143,7 @@ class PrioritizedReplayBuffer:
     def _min(self):
         return self.priority_min[1]
 
+    @njit
     def find_prefix_sum_idx(self, prefix_sum):
         """ find the largest i such that the sum of the leaves from 1 to i is <= prefix sum"""
 
@@ -152,7 +156,7 @@ class PrioritizedReplayBuffer:
                 idx = 2 * idx + 1
         return idx - self.capacity
 
-    def sample(self, batch_size: int, beta: float) -> tuple:
+    def sample(self, batch_size: int, beta: float) -> tuple: # TODO jit
         weights = np.zeros(shape=batch_size, dtype=np.float32)
         indices = np.zeros(shape=batch_size, dtype=np.int32)
 

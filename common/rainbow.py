@@ -47,7 +47,7 @@ class Rainbow:
 
         self.max_grad_norm = args.max_grad_norm
         self.opt = create_optimizer_v2(self.q_policy.parameters(), args.optimizer, lr=args.lr, 
-                                        weight_decay=args.weight_decay, eps=args.adam_eps)
+                                        weight_decay=args.weight_decay, eps=args.adam_eps) 
         self.scaler = GradScaler(enabled=self.use_amp)
 
         self.decay_lr = args.lr_decay_steps is not None
@@ -86,6 +86,7 @@ class Rainbow:
                         actions[i] = self.env.action_space.sample()
             return actions.cpu()
 
+    @torch.jit.script
     @torch.no_grad()
     def td_target(self, reward: float, next_state, done: bool):
         self.reset_noise(self.q_target)
