@@ -410,7 +410,7 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
     elif model_str.startswith('impala_large:'):
         return partial(ImpalaCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
     elif model_str.startswith('impalanext_large:'):
-        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
+        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[17:]), spectral_norm=spectral_norm)
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     
