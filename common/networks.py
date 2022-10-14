@@ -440,7 +440,7 @@ class ConvNeXtImpala(nn.Module):
                 global_pool='avg',
                 output_stride= 32,
                 depths=(3, 3, 3, 0),
-                dims=(16, 32, 64, 64),
+                dims=(16*width, 32*width, 64*width, 64*width),
                 kernel_sizes=7,
                 stem_type='patch',
                 patch_size=3, # TODO calculate and make sure it is suitable
