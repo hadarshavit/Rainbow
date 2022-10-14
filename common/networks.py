@@ -459,12 +459,12 @@ class ConvNeXtImpala(nn.Module):
         self.model.stages = self.model.stages[:-1]
 
         self.dueling = Dueling(
-            nn.Sequential(linear_layer(7 * 7 * 64 * width, 256),
+            nn.Sequential(linear_layer(7 * 7 * 64 * width, 512),
                           nn.GELU(),
-                          linear_layer(256, 1)),
-            nn.Sequential(linear_layer(7 * 7 * 64 * width, 256),
+                          linear_layer(512, 1)),
+            nn.Sequential(linear_layer(7 * 7 * 64 * width, 512),
                           nn.GELU(),
-                          linear_layer(256, actions))
+                          linear_layer(512, actions))
         )
 
     def forward(self, x, advantages_only=False):
