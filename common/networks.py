@@ -432,30 +432,45 @@ class ImpalaNeXtCNNLarge(nn.Module):
         return self.dueling(f, advantages_only=advantages_only)
 
 
-def create_convnext_impala(ratio):
-    model = timm.models.ConvNeXt(
-            in_chans=4,
-            global_pool='avg',
-            output_stride= 32,
-            depths=(3, 3, 3, 0),
-            dims=(16, 32, 64, 64),
-            kernel_sizes=7,
-            stem_type='patch',
-            patch_size=3, # TODO calculate and make sure it is suitable
-            conv_mlp=False,
-            act_layer='gelu',
-            norm_layer=None,
-            drop_rate=0.0,
-            drop_path_rate=0.0,
-        )
-    model.head.global_pool = nn.Identity()
-    model.head.norm = nn.Identity()
-    model.head.flatten = nn.Identity()
-    model.head.fc = nn.Identity()
-    model.head.dropout = nn.Identity()
-    model.stages = model.stages[:-1]
+class ConvNeXtImpala(nn.Module):
+    def __init__(self, in_depth, actions, linear_layer, width):
+        super().__init__()
+        self.model = timm.models.ConvNeXt(
+                in_chans=in_depth,
+                global_pool='avg',
+                output_stride= 32,
+                depths=(3, 3, 3, 0),
+                dims=(16, 32, 64, 64),
+                kernel_sizes=7,
+                stem_type='patch',
+                patch_size=3, # TODO calculate and make sure it is suitable
+                conv_mlp=False,
+                act_layer='gelu',
+                norm_layer=None,
+                drop_rate=0.0,
+                drop_path_rate=0.0,
+            )
+        
+        self.model.head.global_pool = nn.Identity()
+        self.model.head.norm = nn.Identity()
+        self.model.head.flatten = nn.Identity()
+        self.model.head.fc = nn.Identity()
+        self.model.head.dropout = nn.Identity()
+        self.model.stages = self.model.stages[:-1]
 
-    return model
+        self.dueling = Dueling(
+            nn.Sequential(linear_layer(7 * 7 * 64 * width, 256),
+                          nn.GELU(),
+                          linear_layer(256, 1)),
+            nn.Sequential(linear_layer(2048 * width, 256),
+                          nn.GELU(),
+                          linear_layer(256, actions))
+        )
+
+    def forward(self, x, advantages_only=False):
+        f = self.model(x)
+        return self.dueling(f, advantages_only=advantages_only)
+
 
 def get_model(model_str, spectral_norm, resolution, global_pool_type):
     if model_str == 'nature': return NatureCNN
@@ -470,6 +485,5 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     elif model_str.startswith('convnext_impala:'):
-        return create_convnext_impala(int(model_str[16:]))
+        return partial(ConvNeXtImpala, width=int(model_str[16:]))
 
-    
