@@ -462,7 +462,7 @@ class ConvNeXtImpala(nn.Module):
             nn.Sequential(linear_layer(7 * 7 * 64 * width, 256),
                           nn.GELU(),
                           linear_layer(256, 1)),
-            nn.Sequential(linear_layer(2048 * width, 256),
+            nn.Sequential(linear_layer(7 * 7 * 64 * width, 256),
                           nn.GELU(),
                           linear_layer(256, actions))
         )
