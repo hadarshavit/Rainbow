@@ -3,6 +3,7 @@ This file defines all the neural network architectures available to use.
 """
 from functools import partial
 from math import sqrt
+from multiprocessing.reduction import steal_handle
 
 import torch
 from torch import nn as nn, Tensor
@@ -344,19 +345,17 @@ class ImpalaNeXtCNNResidual(nn.Module):
     def forward(self, x):
         x_ = self.conv_0(self.relu(x))
         x_ = self.conv_1(self.relu(x_))
-        return x+x_
+        return x+  x_
 
 class ImpalaNeXtCNNBlock(nn.Module):
     """
     Three of these blocks are used in the large IMPALA CNN.
     """
-    def __init__(self, depth_in, depth_out, norm_func):
+    def __init__(self, depth, norm_func):
         super().__init__()
 
-        self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=7, stride=1, padding=3)
-        self.max_pool = nn.MaxPool2d(3, 2, padding=1)
-        self.residual_0 = ImpalaNeXtCNNResidual(depth_out, norm_func=norm_func)
-        self.residual_1 = ImpalaNeXtCNNResidual(depth_out, norm_func=norm_func)
+        self.residual_0 = ImpalaNeXtCNNResidual(depth, norm_func=norm_func)
+        self.residual_1 = ImpalaNeXtCNNResidual(depth, norm_func=norm_func)
 
     def forward(self, x):
         x = self.conv(x)
@@ -365,12 +364,35 @@ class ImpalaNeXtCNNBlock(nn.Module):
         x = self.residual_1(x)
         return x
 
+class ImpalaNeXtDownsample(nn.Module):
+    def __init__(self, depth_in, depth_out):
+        super().__init__()
+
+        self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=7, stride=1, padding=3)
+        self.max_pool = nn.MaxPool2d(3, 2, padding=1)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.max_pool(x)
+        return x
+
+
+class ImpalaNeXtPatchifyStem(nn.Module):
+    def __init__(self, depth_in, depth_out, patch_size):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out,
+                              kernel_size=patch_size, stride=patch_size, padding=0)
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
+
 
 class ImpalaNeXtCNNLarge(nn.Module):
     """
     Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
     """
-    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False):
+    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False, stem='orig'):
         super().__init__()
 
         def identity(p): return p
@@ -378,10 +400,19 @@ class ImpalaNeXtCNNLarge(nn.Module):
         norm_func = torch.nn.utils.spectral_norm if (spectral_norm == 'all') else identity
         norm_func_last = torch.nn.utils.spectral_norm if (spectral_norm == 'last' or spectral_norm == 'all') else identity
 
+        if stem == 'orig':
+            self.stem = ImpalaNeXtDownsample(in_depth, 16 * model_size)
+        elif stem == 'patchify':
+            self.stem = ImpalaNeXtPatchifyStem(in_depth, 16 * model_size, 2)
+        else:
+            raise ValueError(f'Unknown stem type: {stem}')
+
         self.main = nn.Sequential(
-            ImpalaNeXtCNNBlock(in_depth, 16*model_size, norm_func=norm_func),
-            ImpalaNeXtCNNBlock(16*model_size, 32*model_size, norm_func=norm_func),
-            ImpalaNeXtCNNBlock(32*model_size, 32*model_size, norm_func=norm_func_last),
+            ImpalaNeXtCNNBlock(in_depth, 16 * model_size, norm_func=norm_func),
+            ImpalaNeXtDownsample(16 * model_size, 32 * model_size),
+            ImpalaNeXtCNNBlock(32*model_size, 32*model_size, norm_func=norm_func),
+            ImpalaNeXtDownsample(32 * model_size, 32 * model_size),
+            ImpalaNeXtCNNBlock(32 * model_size, 32 * model_size, norm_func=norm_func_last),
             nn.GELU()
         )
 
@@ -389,10 +420,10 @@ class ImpalaNeXtCNNLarge(nn.Module):
 
         self.dueling = Dueling(
             nn.Sequential(linear_layer(2048*model_size, 256),
-                          nn.ReLU(),
+                          nn.GELU(),
                           linear_layer(256, 1)),
             nn.Sequential(linear_layer(2048*model_size, 256),
-                          nn.ReLU(),
+                          nn.GELU(),
                           linear_layer(256, actions))
         )
 
@@ -402,6 +433,30 @@ class ImpalaNeXtCNNLarge(nn.Module):
         return self.dueling(f, advantages_only=advantages_only)
 
 
+def create_convnext_impala(ratio):
+    model = timm.models.ConvNeXt(
+            in_chans=4,
+            global_pool='avg',
+            output_stride= 32,
+            depths=(3, 3, 3, 0),
+            dims=(16, 32, 64, 64),
+            kernel_sizes=7,
+            stem_type='patch',
+            patch_size=3, # TODO calculate and make sure it is suitable
+            conv_mlp=False,
+            act_layer='gelu',
+            norm_layer=None,
+            drop_rate=0.0,
+            drop_path_rate=0.0,
+        )
+    model.head.global_pool = nn.Identity()
+    model.head.norm = nn.Identity()
+    model.head.flatten = nn.Identity()
+    model.head.fc = nn.Identity()
+    model.head.dropout = nn.Identity()
+    model.stages = model.stages[:-1]
+
+    return model
 
 def get_model(model_str, spectral_norm, resolution, global_pool_type):
     if model_str == 'nature': return NatureCNN
@@ -411,6 +466,11 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
         return partial(ImpalaCNNLarge, model_size=int(model_str[13:]), spectral_norm=spectral_norm)
     elif model_str.startswith('impalanext_large:'):
         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[17:]), spectral_norm=spectral_norm)
+    elif model_str.startswith('impalanextv2_large:'):
+        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify')
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
+    elif model_str.startswith('convnext_impala:'):
+        return create_convnext_impala(int(model_str[16:]))
+
     
