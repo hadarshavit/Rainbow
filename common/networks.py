@@ -3,7 +3,6 @@ This file defines all the neural network architectures available to use.
 """
 from functools import partial
 from math import sqrt
-from multiprocessing.reduction import steal_handle
 
 import torch
 from torch import nn as nn, Tensor
