@@ -87,7 +87,8 @@ class Rainbow:
             return actions.cpu()
     
     @torch.jit.script
-    def calculate_td_target(self, reward, max_q, done, n_step_gamma):
+    @staticmethod
+    def calculate_td_target(reward, max_q, done, n_step_gamma):
         return reward + (1.0 - done) * n_step_gamma * max_q
 
     @torch.no_grad()
