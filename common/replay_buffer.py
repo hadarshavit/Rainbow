@@ -35,9 +35,9 @@ class UniformReplayBuffer:
                     done = True
                     break
 
-            action = torch.LongTensor([action]).cuda()
-            reward = torch.FloatTensor([reward]).cuda()
-            done = torch.FloatTensor([done]).cuda()
+            action = torch.cuda.LongTensor([action])
+            reward = torch.cuda.FloatTensor([reward])
+            done = torch.cuda.FloatTensor([done])
 
             if len(self.buffer) < self.capacity:
                 self.buffer.append((state, next_state, action, reward, done))
@@ -89,9 +89,9 @@ class PrioritizedReplayBuffer:
 
     @staticmethod
     def prepare_transition(state, next_state, action: int, reward: float, done: bool):
-        action = torch.LongTensor([action]).cuda()
-        reward = torch.FloatTensor([reward]).cuda()
-        done = torch.FloatTensor([done]).cuda()
+        action = torch.cuda.LongTensor([action])
+        reward = torch.cuda.FloatTensor([reward])
+        done = torch.cuda.FloatTensor([done])
 
         return state, next_state, action, reward, done
 
