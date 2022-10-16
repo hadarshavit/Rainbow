@@ -97,7 +97,8 @@ class PrioritizedReplayBuffer:
         return state, next_state, action, reward, done
     
     @njit
-    def put(self, *transition, j):
+    def put(self, state, action, reward, done, j):
+        transition = (state, action, reward, done)
         self.n_step_buffers[j].append(transition)
         if len(self.n_step_buffers[j]) == self.n_step + 1 and not self.n_step_buffers[j][0][3]:  # n-step transition can't start with terminal state
             state = self.n_step_buffers[j][0][0]
