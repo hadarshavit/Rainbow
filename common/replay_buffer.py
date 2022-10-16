@@ -90,12 +90,13 @@ class PrioritizedReplayBuffer:
 
     @staticmethod
     def prepare_transition(state, next_state, action: int, reward: float, done: bool):
-        action = torch.LongTensor([action]).cuda()
-        reward = torch.FloatTensor([reward]).cuda()
-        done = torch.FloatTensor([done]).cuda()
+        action = torch.cuda.LongTensor([action])
+        reward = torch.cuda.FloatTensor([reward])
+        done = torch.cuda.FloatTensor([done]).cuda()
 
         return state, next_state, action, reward, done
-
+    
+    @njit
     def put(self, *transition, j):
         self.n_step_buffers[j].append(transition)
         if len(self.n_step_buffers[j]) == self.n_step + 1 and not self.n_step_buffers[j][0][3]:  # n-step transition can't start with terminal state
@@ -156,6 +157,7 @@ class PrioritizedReplayBuffer:
                 idx = 2 * idx + 1
         return idx - self.capacity
 
+    @njit(parallel=True)
     def sample(self, batch_size: int, beta: float) -> tuple: # TODO jit
         weights = np.zeros(shape=batch_size, dtype=np.float32)
         indices = np.zeros(shape=batch_size, dtype=np.int32)
