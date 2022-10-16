@@ -443,7 +443,8 @@ class ImpalaNeXtCNNLarge(nn.Module):
         )
 
     def forward(self, x, advantages_only=False):
-        f = self.main(x)
+        f = self.stem(x)
+        f = self.main(f)
         f = self.pool(f)
         return self.dueling(f, advantages_only=advantages_only)
 
