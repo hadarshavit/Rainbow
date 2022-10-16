@@ -96,7 +96,6 @@ class PrioritizedReplayBuffer:
 
         return state, next_state, action, reward, done
     
-    @njit
     def put(self, state, action, reward, done, j):
         transition = (state, action, reward, done)
         self.n_step_buffers[j].append(transition)
@@ -121,7 +120,7 @@ class PrioritizedReplayBuffer:
             self.size = min(self.capacity, self.size + 1)
 
             self._set_priority_min(idx, sqrt(self.max_priority))
-            self._set_priority_sum(idx, sqrt(self.max_priority))
+            self._set_priority_sum(idx, sqrt(self.max_priority))        
 
     @njit
     def _set_priority_min(self, idx, priority_alpha):
