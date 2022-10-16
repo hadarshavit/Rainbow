@@ -86,7 +86,6 @@ class Rainbow:
                         actions[i] = self.env.action_space.sample()
             return actions.cpu()
 
-    @torch.jit.script
     @torch.no_grad()
     def td_target(self, reward: float, next_state, done: bool):
         self.reset_noise(self.q_target)
