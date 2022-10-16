@@ -87,8 +87,8 @@ class Rainbow:
             return actions.cpu()
     
     @torch.jit.script
-    def calculate_td_target(self, reward, max_q, done):
-        return reward + (1.0 - done) * self.n_step_gamma * max_q
+    def calculate_td_target(self, reward, max_q, done, n_step_gamma):
+        return reward + (1.0 - done) * n_step_gamma * max_q
 
     @torch.no_grad()
     def td_target(self, reward: float, next_state, done: bool):
@@ -96,10 +96,10 @@ class Rainbow:
         if self.double_dqn:
             best_action = torch.argmax(self.q_policy(next_state, advantages_only=True), dim=1)
             next_Q = torch.gather(self.q_target(next_state), dim=1, index=best_action.unsqueeze(1)).squeeze()
-            return self.calculate_td_target(reward, next_Q, done)
+            return self.calculate_td_target(reward, next_Q, done, self.n_step_gamma)
         else:
             max_q = torch.max(self.q_target(next_state), dim=1)[0]
-            return self.calculate_td_target(reward, max_q, done)
+            return self.calculate_td_target(reward, max_q, done, self.n_step_gamma)
 
     def train(self, batch_size, beta=None) -> Tuple[float, float, float]:
         if self.prioritized_er:
