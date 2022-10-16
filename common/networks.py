@@ -10,6 +10,11 @@ from torch.nn import init
 import torch.nn.functional as F
 import timm
 
+
+def conv_output_size(in_size, kernel_size, stride, padding):
+    return (in_size - kernel_size + 2*padding) // stride + 1
+
+
 class FactorizedNoisyLinear(nn.Module):
     """ The factorized Gaussian noise layer for noisy-nets dqn. """
     def __init__(self, in_features: int, out_features: int, sigma_0: float) -> None:
@@ -333,54 +338,65 @@ class ConvNeXtAttoModel(nn.Module):
 class ImpalaNeXtCNNResidual(nn.Module):
     """
     Simple residual block used in the large IMPALA CNN.
+    Changes from IMPALA: inc kernel size, gelu, layer norm, act pos
     """
-    def __init__(self, depth, norm_func):
+    def __init__(self, depth, h, w, norm_func, layer_norm):
         super().__init__()
 
-        self.relu = nn.GELU()
+        
         self.conv_0 = norm_func(nn.Conv2d(in_channels=depth, out_channels=depth, kernel_size=7, stride=1, padding=3))
+        
+        self.layer_nrom = nn.LayerNorm([depth, h, w]) if layer_norm else nn. Identity()
         self.conv_1 = norm_func(nn.Conv2d(in_channels=depth, out_channels=depth, kernel_size=7, stride=1, padding=3))
+        self.gelu = nn.GELU()
 
     def forward(self, x):
-        x_ = self.conv_0(self.relu(x))
-        x_ = self.conv_1(self.relu(x_))
-        return x+  x_
+        x_ = self.conv_0(x)
+        x_ = self.layer_nrom(x_)
+        x_ = self.gelu(x_)
+        x_ = self.conv_1(x_)
+        return x +  x_
 
 class ImpalaNeXtCNNBlock(nn.Module):
     """
     Three of these blocks are used in the large IMPALA CNN.
     """
-    def __init__(self, depth, norm_func):
+    def __init__(self, depth, h, w, norm_func, layer_norm):
         super().__init__()
 
-        self.residual_0 = ImpalaNeXtCNNResidual(depth, norm_func=norm_func)
-        self.residual_1 = ImpalaNeXtCNNResidual(depth, norm_func=norm_func)
+        self.residual_0 = ImpalaNeXtCNNResidual(depth, h, w, norm_func, layer_norm)
+        self.residual_1 = ImpalaNeXtCNNResidual(depth,h, w, norm_func, layer_norm)
 
     def forward(self, x):
-        x = self.conv(x)
-        x = self.max_pool(x)
         x = self.residual_0(x)
         x = self.residual_1(x)
         return x
 
 class ImpalaNeXtDownsample(nn.Module):
-    def __init__(self, depth_in, depth_out):
+    def __init__(self, depth_in, depth_out, w, h, convnext_like=False):
         super().__init__()
-
-        self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=7, stride=1, padding=3)
-        self.max_pool = nn.MaxPool2d(3, 2, padding=1)
+        if not convnext_like:
+            self.layer_norm = nn.Identity()
+            self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=7, stride=1, padding=3)
+            self.max_pool = nn.MaxPool2d(3, 2, padding=1)
+        else:
+            self.layer_norm = nn.LayerNorm([depth_in, h, w])
+            self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=2, stride=2, padding=0)
+            self.max_pool = nn.Identity()
 
     def forward(self, x):
+        x = self.layer_norm(x)
         x = self.conv(x)
         x = self.max_pool(x)
         return x
 
 
 class ImpalaNeXtPatchifyStem(nn.Module):
-    def __init__(self, depth_in, depth_out, patch_size):
+    def __init__(self, depth_in, depth_out, h, w, patch_size):
         super().__init__()
         self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out,
                               kernel_size=patch_size, stride=patch_size, padding=0)
+        self.layer_norm = nn.LayerNorm([depth_out, h, w])
 
     def forward(self, x):
         x = self.conv(x)
@@ -391,7 +407,7 @@ class ImpalaNeXtCNNLarge(nn.Module):
     """
     Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
     """
-    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False, stem='orig'):
+    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False, stem='orig', layer_norm=False, convnext_downsampling=False):
         super().__init__()
 
         def identity(p): return p
@@ -400,18 +416,18 @@ class ImpalaNeXtCNNLarge(nn.Module):
         norm_func_last = torch.nn.utils.spectral_norm if (spectral_norm == 'last' or spectral_norm == 'all') else identity
 
         if stem == 'orig':
-            self.stem = ImpalaNeXtDownsample(in_depth, 16 * model_size)
+            self.stem = ImpalaNeXtDownsample(in_depth, 16 * model_size, 84, 84, convnext_like=False)
         elif stem == 'patchify':
-            self.stem = ImpalaNeXtPatchifyStem(in_depth, 16 * model_size, 2)
+            self.stem = ImpalaNeXtPatchifyStem(in_depth, 16 * model_size, 84, 84, 2)
         else:
             raise ValueError(f'Unknown stem type: {stem}')
 
         self.main = nn.Sequential(
-            ImpalaNeXtCNNBlock(in_depth, 16 * model_size, norm_func=norm_func),
-            ImpalaNeXtDownsample(16 * model_size, 32 * model_size),
-            ImpalaNeXtCNNBlock(32*model_size, 32*model_size, norm_func=norm_func),
-            ImpalaNeXtDownsample(32 * model_size, 32 * model_size),
-            ImpalaNeXtCNNBlock(32 * model_size, 32 * model_size, norm_func=norm_func_last),
+            ImpalaNeXtCNNBlock(16 * model_size, 42, 42, norm_func=norm_func, layer_norm=layer_norm),
+            ImpalaNeXtDownsample(16 * model_size, 32*model_size, 42, 42, convnext_like=convnext_downsampling),
+            ImpalaNeXtCNNBlock(32*model_size, 21, 21, norm_func=norm_func, layer_norm=layer_norm),
+            ImpalaNeXtDownsample(32 * model_size, 32*model_size, 21, 21, convnext_like=convnext_downsampling),
+            ImpalaNeXtCNNBlock(32 * model_size, 10, 10, norm_func=norm_func_last, layer_norm=layer_norm),
             nn.GELU()
         )
 
@@ -481,7 +497,7 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
     elif model_str.startswith('impalanext_large:'):
         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[17:]), spectral_norm=spectral_norm)
     elif model_str.startswith('impalanextv2_large:'):
-        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify')
+        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify', convnext_downsampling=True, layer_norm=True)
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     elif model_str.startswith('convnext_impala:'):
