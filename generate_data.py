@@ -27,3 +27,4 @@ if __name__ == '__main__':
             ram = env.unwrapped._get_ram()
             all_obserbatios.append(state)
     np.save(f'./data1/s3092593/atari_rams/{env}.npy', np.array(all_obserbatios))
+    np.save(f'./data1/s3092593/atari_rams/{env}_ram.npy', np.array(all_rams))
