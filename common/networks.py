@@ -343,17 +343,17 @@ class ImpalaNeXtCNNResidual(nn.Module):
     def __init__(self, depth, h, w, norm_func, layer_norm, activation_position):
         super().__init__()
 
-        self.gelu1 = nn.GELU() if activation_position == 'before' else nn.Identity()
+        self.gelu1 = nn.GELU() if activation_position in ['before', 'both'] else nn.Identity()
         self.conv_0 = norm_func(nn.Conv2d(in_channels=depth, out_channels=depth, kernel_size=7, stride=1, padding=3))
         self.layer_nrom = nn.LayerNorm([depth, h, w]) if layer_norm else nn. Identity()
         self.conv_1 = norm_func(nn.Conv2d(in_channels=depth, out_channels=depth, kernel_size=7, stride=1, padding=3))
-        self.gelu2 = nn.GELU() if activation_position == 'after' else nn.Identity()
+        self.gelu2 = nn.GELU() if activation_position in ['after', 'both'] else nn.Identity()
 
     def forward(self, x):
         x_ = self.gelu1(x)
         x_ = self.conv_0(x_)
         x_ = self.layer_nrom(x_)
-        x_ = self.gelu1(x_)
+        x_ = self.gelu2(x_)
         x_ = self.conv_1(x_)
         return x +  x_
 
@@ -505,6 +505,9 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='orig', convnext_downsampling=True, layer_norm=False)
     elif model_str.startswith('impalanextv5_large:'):
         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='orig', convnext_downsampling=False, layer_norm=False)
+    elif model_str.startswith('impalanextv6_large:'):
+        return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='orig',
+                        convnext_downsampling=False, layer_norm=False, activation_pos='before')
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     elif model_str.startswith('convnext_impala:'):
