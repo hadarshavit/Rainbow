@@ -508,6 +508,15 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
     elif model_str.startswith('impalanextv6_large:'):
         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='orig',
                         convnext_downsampling=False, layer_norm=False, activation_pos='before')
+    elif model_str.startswith('impalanextv7_large:'):
+         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='orig',
+                        convnext_downsampling=True, layer_norm=False, activation_pos='before')
+    elif model_str.startswith('impalanextv8_large:'):
+         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify',
+                        convnext_downsampling=True, layer_norm=False, activation_pos='before')
+    elif model_str.startswith('impalanextv9_large:'):
+         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify',
+                        convnext_downsampling=False, layer_norm=False, activation_pos='before')
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     elif model_str.startswith('convnext_impala:'):
