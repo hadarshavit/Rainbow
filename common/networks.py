@@ -427,7 +427,7 @@ class ImpalaNeXtCNNLarge(nn.Module):
             ImpalaNeXtDownsample(16 * model_size, 32*model_size, 42, 42, convnext_like=convnext_downsampling, layer_norm=layer_norm),
             ImpalaNeXtCNNBlock(32*model_size, 21, 21, norm_func=norm_func, layer_norm=layer_norm, activation_pos=activation_pos),
             ImpalaNeXtDownsample(32 * model_size, 32*model_size, 21, 21, convnext_like=convnext_downsampling, layer_norm=layer_norm),
-            ImpalaNeXtCNNBlock(32 * model_size, 10, 10, norm_func=norm_func_last, layer_norm=layer_norm, activation_pos=activation_pos),
+            ImpalaNeXtCNNBlock(32 * model_size, 11, 11, norm_func=norm_func_last, layer_norm=layer_norm, activation_pos=activation_pos),
             nn.GELU()
         )
 
