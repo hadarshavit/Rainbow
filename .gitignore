@@ -1,0 +1,4 @@
+wnadb/*
+*.err
+*.our
+*.slurm
