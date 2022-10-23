@@ -372,13 +372,20 @@ class ImpalaNeXtCNNBlock(nn.Module):
         x = self.residual_1(x)
         return x
 
+
 class ImpalaNeXtDownsample(nn.Module):
-    def __init__(self, depth_in, depth_out, w, h, convnext_like=False, layer_norm=False):
+    def __init__(self, depth_in, depth_out, w, h, convnext_like=False, layer_norm=False, blur_pool=False):
         super().__init__()
         if not convnext_like:
             self.layer_norm = nn.Identity()
             self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=7, stride=1, padding=3)
-            self.max_pool = nn.MaxPool2d(3, 2, padding=1)
+            if not blur_pool:
+                self.max_pool = nn.MaxPool2d(3, 2, padding=1)
+            else:
+                self.max_pool = nn.Sequential(
+                    nn.MaxPool2d(3, 1, padding=1),
+                    timm.models.layers.blur_pool.BlurPool2d(depth_out, 3, stride=2)
+                )
         else:
             self.layer_norm = nn.LayerNorm([depth_in, h, w]) if layer_norm else nn.Identity()
             self.conv = nn.Conv2d(in_channels=depth_in, out_channels=depth_out, kernel_size=2, stride=2, padding=0)
@@ -407,7 +414,8 @@ class ImpalaNeXtCNNLarge(nn.Module):
     """
     Implementation of the large variant of the IMPALA CNN introduced in Espeholt et al. (2018).
     """
-    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False, stem='orig', layer_norm=False, convnext_downsampling=False, activation_pos='after'):
+    def __init__(self, in_depth, actions, linear_layer, model_size=1, spectral_norm=False, stem='orig', layer_norm=False, 
+                    convnext_downsampling=False, activation_pos='after', blur_pool=False):
         super().__init__()
 
         def identity(p): return p
@@ -416,7 +424,7 @@ class ImpalaNeXtCNNLarge(nn.Module):
         norm_func_last = torch.nn.utils.spectral_norm if (spectral_norm == 'last' or spectral_norm == 'all') else identity
 
         if stem == 'orig':
-            self.stem = ImpalaNeXtDownsample(in_depth, 16 * model_size, 84, 84, convnext_like=False)
+            self.stem = ImpalaNeXtDownsample(in_depth, 16 * model_size, 84, 84, convnext_like=False, blur_pool=blur_pool)
         elif stem == 'patchify':
             self.stem = ImpalaNeXtPatchifyStem(in_depth, 16 * model_size, 84, 84, 2, layer_norm=layer_norm)
         else:
@@ -424,9 +432,9 @@ class ImpalaNeXtCNNLarge(nn.Module):
 
         self.main = nn.Sequential(
             ImpalaNeXtCNNBlock(16 * model_size, 42, 42, norm_func=norm_func, layer_norm=layer_norm, activation_pos=activation_pos),
-            ImpalaNeXtDownsample(16 * model_size, 32*model_size, 42, 42, convnext_like=convnext_downsampling, layer_norm=layer_norm),
+            ImpalaNeXtDownsample(16 * model_size, 32*model_size, 42, 42, convnext_like=convnext_downsampling, layer_norm=layer_norm, blur_pool=blur_pool),
             ImpalaNeXtCNNBlock(32*model_size, 21, 21, norm_func=norm_func, layer_norm=layer_norm, activation_pos=activation_pos),
-            ImpalaNeXtDownsample(32 * model_size, 32*model_size, 21, 21, convnext_like=convnext_downsampling, layer_norm=layer_norm),
+            ImpalaNeXtDownsample(32 * model_size, 32*model_size, 21, 21, convnext_like=convnext_downsampling, layer_norm=layer_norm, blur_pool=blur_pool),
             ImpalaNeXtCNNBlock(32 * model_size, 11, 11, norm_func=norm_func_last, layer_norm=layer_norm, activation_pos=activation_pos),
             nn.GELU()
         )
@@ -520,6 +528,9 @@ def get_model(model_str, spectral_norm, resolution, global_pool_type):
     elif model_str.startswith('impalanextv10_large:'):
          return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[20:]), spectral_norm=spectral_norm, stem='patchify',
                         convnext_downsampling=False, layer_norm=True, activation_pos='before')
+    elif model_str.startswith('impalanextv11_large:'):
+         return partial(ImpalaNeXtCNNLarge, model_size=int(model_str[19:]), spectral_norm=spectral_norm, stem='patchify',
+                        convnext_downsampling=False, layer_norm=False, activation_pos='before', blur_pool=True)
     elif model_str.startswith('convnext_atto'):
         return partial(ConvNeXtAttoModel, spectral_norm=spectral_norm, resolution=resolution, global_pool_type=global_pool_type)
     elif model_str.startswith('convnext_impala:'):
