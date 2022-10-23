@@ -78,6 +78,7 @@ def read_args():
     parser.add_argument('--noisy_dqn', type=parse_bool, default=True, help='whether to use noisy nets dqn')
     parser.add_argument('--noisy_sigma0', type=float, default=0.5, help='sigma_0 parameter for noisy nets dqn')
     parser.add_argument('--global_pool_type', type=str, default='max', help='Global pooling type for the CNN')
+    parser.add_argument('--aug', type=bool, default=False, help='Data Augmentation (like in DrQv2)')
 
     # optimizer settings
     parser.add_argument('--lr', type=float, default=0.00025, help='learning rate for adam (0.0000625 for rainbow paper/dopamine, 0.00025 for DQN/procgen paper)')

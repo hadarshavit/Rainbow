@@ -12,6 +12,7 @@ from torch.cuda.amp import GradScaler, autocast
 from timm.optim import create_optimizer_v2
 
 from common import networks
+from common.augmentation import RandomShiftsAug
 from common.replay_buffer import UniformReplayBuffer, PrioritizedReplayBuffer
 from common.utils import prep_observation_for_qnet
 
@@ -57,6 +58,8 @@ class Rainbow:
 
         loss_fn_cls = nn.MSELoss if args.loss_fn == 'mse' else nn.SmoothL1Loss
         self.loss_fn = loss_fn_cls(reduction=('none' if self.prioritized_er else 'mean'))
+
+        self.aug = RandomShiftsAug(pad=4) if args.aug else nn.Identity()
 
     def sync_Q_target(self) -> None:
         self.q_target.load_state_dict(self.q_policy.state_dict())
@@ -104,6 +107,9 @@ class Rainbow:
         else:
             state, next_state, action, reward, done = self.buffer.sample(batch_size)
 
+        state = self.aug(state)
+        next_state = self.aug(next_state)
+        
         self.opt.zero_grad()
         with autocast(enabled=self.use_amp):
             td_est = torch.gather(self.q_policy(state), dim=1, index=action.unsqueeze(1)).squeeze()
